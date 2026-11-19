@@ -30,21 +30,42 @@ def _wire_liters(value, *, positive=False) -> Fraction:
     return amount
 
 
-def read_ranges(evidence: dict, total: Fraction) -> tuple[tuple[Fraction, Fraction], ...]:
-    if not isinstance(evidence, dict) or set(evidence) not in ({"ranges"}, {"ranges", "extensions"}):
+def read_capability(evidence: dict, total: Fraction) -> tuple[Fraction, ...]:
+    """Return the sixteen subset caps, indexed by roster bit masks."""
+    if not isinstance(evidence, dict) or set(evidence) != {"ranges", "extensions"}:
         raise ValueError("invalid capability evidence")
-    if "extensions" in evidence and not isinstance(evidence["extensions"], dict):
+    extensions = evidence["extensions"]
+    if not isinstance(extensions, dict) or set(extensions) != {"subsets"}:
         raise ValueError("invalid capability extensions")
+    rows = extensions["subsets"]
+    if not isinstance(rows, list) or len(rows) != 16:
+        raise ValueError("capability requires sixteen subset caps")
+    caps = tuple(_wire_liters(row) for row in rows)
+    if any(cap > total for cap in caps):
+        raise ValueError("subset caps cannot exceed the packet total")
+    if caps[0] != 0 or caps[15] != total:
+        raise ValueError("subset caps must bound the empty and full port sets")
+    for mask in range(16):
+        for bit in range(4):
+            if mask & (1 << bit) and caps[mask ^ (1 << bit)] > caps[mask]:
+                raise ValueError("subset caps must respect port inclusion")
+    return caps
+
+
+def read_ranges(evidence: dict, total: Fraction) -> tuple[tuple[Fraction, Fraction], ...]:
+    caps = read_capability(evidence, total)
     rows = evidence["ranges"]
     if not isinstance(rows, list) or len(rows) != 4:
         raise ValueError("capability requires four port ranges")
     intervals = []
-    for row in rows:
+    for index, row in enumerate(rows):
         if not isinstance(row, list) or len(row) != 2:
             raise ValueError("invalid capability range row")
         lower, upper = map(_wire_liters, row)
         if not lower <= upper <= total:
             raise ValueError("invalid capability range endpoints")
+        if (lower, upper) != (total - caps[15 ^ (1 << index)], caps[1 << index]):
+            raise ValueError("port ranges disagree with the subset caps")
         intervals.append((lower, upper))
     if not sum(lower for lower, _ in intervals) <= total <= sum(upper for _, upper in intervals):
         raise ValueError("port ranges cannot carry the packet total")

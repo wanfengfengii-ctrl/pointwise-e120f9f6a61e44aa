@@ -1,6 +1,7 @@
 import sqlite3
+from fractions import Fraction
 
-from issue.envelope import PacketEnvelope, read_ranges
+from issue.envelope import PacketEnvelope, read_capability
 from reports.publish import publish_report
 from reports.readback import Report
 from reports.snapshots import build_snapshot
@@ -8,22 +9,24 @@ from review.ranges import PortRange, compute_port_range
 from review.selection import ReviewSelection, select_pair
 
 
-def _common_ranges(packet: PacketEnvelope, coordinates: tuple[int, ...]):
-    local_ranges = read_ranges(packet.evidence, packet.total)
-    return {common: local_ranges[local] for local, common in enumerate(coordinates)}
+def _common_capability(packet: PacketEnvelope, coordinates: tuple[int, ...]):
+    local_caps = read_capability(packet.evidence, packet.total)
+    common = [Fraction(0)] * 16
+    for mask in range(16):
+        common_mask = 0
+        for local in range(4):
+            if mask & (1 << local):
+                common_mask |= 1 << coordinates[local]
+        common[common_mask] = local_caps[mask]
+    return common
 
 
 def reconcile_evidence(selection: ReviewSelection) -> PortRange:
     alignment = selection.alignment
-    supply = selection.supply.packet
-    receive = selection.receive.packet
-    supply_ranges = _common_ranges(supply, alignment.supply_to_common)
-    receive_ranges = _common_ranges(receive, alignment.receive_to_common)
-    joint = [
-        (max(supply_ranges[i][0], receive_ranges[i][0]), min(supply_ranges[i][1], receive_ranges[i][1]))
-        for i in range(len(alignment.common_ids))
-    ]
-    return compute_port_range(supply.total, joint, alignment.target_index)
+    supply = _common_capability(selection.supply.packet, alignment.supply_to_common)
+    receive = _common_capability(selection.receive.packet, alignment.receive_to_common)
+    joint = [min(supply_cap, receive_cap) for supply_cap, receive_cap in zip(supply, receive)]
+    return compute_port_range(selection.supply.packet.total, joint, alignment.target_index)
 
 
 def review(db: sqlite3.Connection, supply_id: int, receive_id: int, port: str) -> Report:

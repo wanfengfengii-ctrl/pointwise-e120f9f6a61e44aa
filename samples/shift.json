@@ -1,0 +1,63 @@
+{
+  "batch_id": "shift-07",
+  "ports": ["A", "B", "C", "D"],
+  "total": "2",
+  "supply": {
+    "root": "pump",
+    "layouts": {
+      "initial": [
+        ["pump", "left", "1", "day-supply:01"],
+        ["pump", "right", "1", "day-supply:02"],
+        ["left", "A", "1", "day-supply:03"],
+        ["left", "B", "1", "day-supply:04"],
+        ["right", "C", "1", "day-supply:05"],
+        ["right", "D", "1", "day-supply:06"]
+      ],
+      "correction": [
+        ["pump", "left", "1", "recheck-supply:01"],
+        ["pump", "right", "1", "recheck-supply:02"],
+        ["left", "A", "1", "recheck-supply:03"],
+        ["left", "C", "1", "recheck-supply:04"],
+        ["right", "B", "1", "recheck-supply:05"],
+        ["right", "D", "1", "recheck-supply:06"]
+      ],
+      "insufficient": [["pump", "A", "1", "short-supply:01"]],
+      "shared_feed": [
+        ["pump", "header", "1", "shared-supply:01"],
+        ["header", "A", "1", "shared-supply:02"],
+        ["header", "B", "1", "shared-supply:03"],
+        ["header", "C", "1", "shared-supply:04"],
+        ["header", "D", "1", "shared-supply:05"]
+      ]
+    }
+  },
+  "receive": {
+    "root": "tank",
+    "layouts": {
+      "b_required": [
+        ["B", "tank", "1", "day-receive:01"],
+        ["A", "manifold", "1", "day-receive:02"],
+        ["C", "manifold", "1", "day-receive:03"],
+        ["D", "manifold", "1", "day-receive:04"],
+        ["manifold", "tank", "1", "day-receive:05"]
+      ],
+      "ab_required": [
+        ["A", "tank", "1", "dual-receive:01"],
+        ["B", "tank", "1", "dual-receive:02"]
+      ],
+      "fractional": [
+        ["B", "tank", "1/2", "split-receive:01"],
+        ["D", "tank", "1", "split-receive:02"],
+        ["A", "manifold", "1", "split-receive:03"],
+        ["C", "manifold", "1", "split-receive:04"],
+        ["manifold", "tank", "1/2", "split-receive:05"]
+      ],
+      "free": [
+        ["A", "tank", "2", "free-receive:01"],
+        ["B", "tank", "2", "free-receive:02"],
+        ["C", "tank", "2", "free-receive:03"],
+        ["D", "tank", "2", "free-receive:04"]
+      ]
+    }
+  }
+}
